@@ -66,7 +66,7 @@ class NSLKDD:
                     'dst_bytes', 'land', 'wrong_fragment', 'urgent', 'hot',
                     'num_failed_logins', 'logged_in', 'num_compromised', 'root_shell',
                     'su_attempted', 'num_root', 'num_file_creations', 'num_shells',
-                    'num_access_files', 'num_outbound_cmds', 'is_host_login', 'is_guest_login',
+                    'num_access_files', 'is_host_login', 'is_guest_login',
                     'count', 'srv_count', 'serror_rate', 'srv_serror_rate', 'rerror_rate',
                     'srv_rerror_rate', 'same_srv_rate', 'diff_srv_rate', 'srv_diff_host_rate',
                     'dst_host_count', 'dst_host_srv_count', 'dst_host_same_srv_rate',
@@ -78,7 +78,7 @@ class NSLKDD:
                    'dst_bytes', 'land', 'wrong_fragment', 'urgent', 'hot',
                    'num_failed_logins', 'logged_in', 'num_compromised', 'root_shell',
                    'su_attempted', 'num_root', 'num_file_creations', 'num_shells',
-                   'num_access_files', 'num_outbound_cmds', 'is_host_login', 'is_guest_login',
+                   'num_access_files', 'is_host_login', 'is_guest_login',
                    'count', 'srv_count', 'serror_rate', 'srv_serror_rate', 'rerror_rate',
                    'srv_rerror_rate', 'same_srv_rate', 'diff_srv_rate', 'srv_diff_host_rate',
                    'dst_host_count', 'dst_host_srv_count', 'dst_host_same_srv_rate',
@@ -93,6 +93,8 @@ class NSLKDD:
 
     def __init__(self, data_file_path):
         self.__df = pd.read_csv(data_file_path, names=self.__col_names, encoding='latin-1')
+
+    def preprocess(self):
         self.__df = fill_nas(self.__df, 'attack_cat', 'none')
         self.__df.drop(self.__drop_cols, 1, inplace=True)
         self.__df = encode_categorical(self.__df, self.__categorical_cols)
