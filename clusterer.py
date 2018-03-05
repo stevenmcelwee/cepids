@@ -35,7 +35,7 @@ class PartitionGenerator:
             # fit the model
             model.fit(X)
             # append the labels
-            self.__labels.append(model.labels_)
+            self.__labels.append([bagging_plans, model.labels_])
             i += 1
 
     def __gen_bagging_plan(self, cols, p_count, max_features, min_features):
@@ -52,6 +52,7 @@ class PartitionGenerator:
     def get_labels(self):
         return self.__labels
 
+    # Do I need this function? probably can be deleted
     def eval_partitions(self):
         i = 0
         for cluster_labels in self.__labels:
@@ -86,14 +87,14 @@ class Evaluator:
 
         self.__eval_object = []
 
-        # Get labels for 2D list where first selection is the partition, second is the row of the orig dataset
+        # Get labels for list: 1) partition; 2) bagging plan_list, labels_list
         self.__labels = partition_generator.get_labels()
 
         # Loop through the partitions
         for partition in self.__labels:
             # count the number of each label in the partition
             counter = Counter()
-            for label in partition:
+            for label in partition[1]:
                 counter[label] += 1
             # loop through counter object to get some statistics
             # first convert counter to a list
@@ -104,8 +105,8 @@ class Evaluator:
                                         "total": sum(label_counts),
                                         "label_count": len(label_counts),
                                         "mean": np.mean(label_counts, axis=0),
-                                        "stdev": np.std(label_counts, axis=0)})
-        print self.__eval_object
+                                        "stdev": np.std(label_counts, axis=0),
+                                        "features": partition[0]})
 
     def get_anoms(self, distance):
         # holder for 2D list of partitions and labels
@@ -189,7 +190,7 @@ class Evaluator:
 
             print partition_number, partition["label_count"], anom1, anom1_label, anom1_min, anom1_max, \
                 anom2, anom2_label, anom2_min, anom2_max, \
-                anom3, anom3_label, anom3_min, anom3_max, partition["counter"]
+                anom3, anom3_label, anom3_min, anom3_max, partition["counter"], partition["features"]
 
 
 
