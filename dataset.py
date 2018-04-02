@@ -59,11 +59,11 @@ class NSLKDD:
                    'dst_host_srv_serror_rate', 'dst_host_rerror_rate', 'dst_host_srv_rerror_rate',
                    'label','cluster_id']
 
-    __drop_cols = ['cluster_id']
+    __drop_cols = ['cluster_id','wrong_fragment']
     __categorical_cols = ['flag','label', 'protocol_type', 'service']
 
     __scale_cols = ['duration', 'protocol_type', 'service', 'flag', 'src_bytes',
-                    'dst_bytes', 'land', 'wrong_fragment', 'urgent', 'hot',
+                    'dst_bytes', 'land', 'urgent', 'hot',
                     'num_failed_logins', 'logged_in', 'num_compromised', 'root_shell',
                     'su_attempted', 'num_root', 'num_file_creations', 'num_shells',
                     'num_access_files', 'is_host_login', 'is_guest_login',
@@ -75,7 +75,7 @@ class NSLKDD:
                     'dst_host_srv_serror_rate', 'dst_host_rerror_rate', 'dst_host_srv_rerror_rate']
 
     __feature_cols = ['duration', 'protocol_type', 'service', 'flag', 'src_bytes',
-                   'dst_bytes', 'land', 'wrong_fragment', 'urgent', 'hot',
+                   'dst_bytes', 'land', 'urgent', 'hot',
                    'num_failed_logins', 'logged_in', 'num_compromised', 'root_shell',
                    'su_attempted', 'num_root', 'num_file_creations', 'num_shells',
                    'num_access_files', 'is_host_login', 'is_guest_login',
@@ -128,7 +128,8 @@ class UNSW:
                    'ct_src_dport_ltm', 'ct_dst_sport_ltm', 'ct_dst_src_ltm', 'attack_cat',
                    'Label']
 
-    __drop_cols = ['attack_cat', 'Ltime','Stime']
+    # __drop_cols = ['attack_cat', 'Ltime','Stime']
+    __drop_cols = ['Ltime','Stime']
 
     __categorical_cols = ['dstip','proto','service','srcip','state']
 
