@@ -5,7 +5,7 @@ from collections import Counter
 
 class PartitionGenerator:
 
-    def __init__(self, dataset, num_partitions, min_feature_ratio=0.25, max_feature_ratio=0.75, min_clusters=3, max_clusters=20):
+    def __init__(self, dataset, num_partitions, min_feature_ratio=0.25, max_feature_ratio=0.75, min_clusters=40, max_clusters=100):
         self.__labels = []  # store labels for each partition in a list
 
         feature_columns = dataset.get_feature_cols()
@@ -35,7 +35,8 @@ class PartitionGenerator:
             # fit the model
             model.fit(X)
             # append the labels
-            self.__labels.append([bagging_plans, model.labels_])
+            # TODO: Can I remove self.__bagging_plans from the label object? I added a return for it.
+            self.__labels.append([plan, model.labels_])
             i += 1
 
     def __gen_bagging_plan(self, cols, p_count, max_features, min_features):
@@ -51,6 +52,9 @@ class PartitionGenerator:
 
     def get_labels(self):
         return self.__labels
+
+    def get_bagging_plan(self):
+        return self.__bagging_plans
 
     # Do I need this function? probably can be deleted
     def eval_partitions(self):

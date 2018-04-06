@@ -159,13 +159,14 @@ class UNSW:
                          parse_dates=['Stime','Ltime'],
                          low_memory=False,
                          encoding='latin-1')
+
+    def preprocess(self):
         self.__df.drop(self.__drop_cols, 1, inplace=True)
         self.__df = fill_nas(self.__df, 'attack_cat', 'none')
         self.__df = encode_categorical(self.__df, self.__categorical_cols)
         # hack for bad data in ports
         self.__df['dsport'] = self.__df['dsport'].apply(lambda x: np.where(x.isdigit(),x,'0')).astype('int32')
         self.__df['sport'] = self.__df['sport'].apply(lambda x: np.where(x.isdigit(),x,'0')).astype('int32')
-
         self.__df = scale(self.__df, self.__scale_cols)
 
     def get_df(self):
