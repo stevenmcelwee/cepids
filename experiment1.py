@@ -1,3 +1,4 @@
+import sys
 from dataset import UNSW
 from dataset import NSLKDD
 from clusterer import PartitionGenerator
@@ -7,15 +8,15 @@ import pandas as pd
 import numpy as np
 
 # Constants
-num_partitions = 100
+num_partitions = 1000
 num_stdevs = 4
 # distance = 1.5
 
 print("Loading dataset...")
-# dataset_name = 'unsw'
-# dataset = UNSW('datasets/unsw-nb15/UNSW-NB15_1.csv')
-dataset_name = 'nslkdd'
-dataset = NSLKDD('datasets/derived/kdd_u2r_r2l.csv')
+dataset_name = 'unsw'
+dataset = UNSW('datasets/unsw-nb15/UNSW-NB15_1.csv')
+# dataset_name = 'nslkdd'
+# dataset = NSLKDD('datasets/derived/kdd_u2r_r2l.csv')
 
 # get a copy of the original dataset without preprocessing
 print("Getting dataframe of original dataset...")
@@ -50,7 +51,10 @@ df['counter'] = df['label']
 
 # print df
 
-df.to_csv("experiment1_out.csv", index=False)
+df.to_csv("experiment1_partitions_%s_%sp_%ss.csv" % (dataset_name,num_partitions,num_stdevs), index=False)
+
+# Stop here if you only want the clustering results and not evaluation
+sys.exit("Done.")
 
 # Create a pivot table to analyze each partition, store results in results[] dataframe
 i = 0
