@@ -10,7 +10,7 @@ print "Loading dataset..."
 df = pd.read_csv(dataset_file_name, low_memory=False)
 
 # For each partition, find which partitions are anomalies
-print "Updating partitions 0 = normal, 1 = anomaly..."
+print "Updating partitions 1 = normal, 0 = anomaly..."
 for i in range(0, num_partitions):
     partition_label = "P%s" % i
     this_part = df[partition_label].value_counts()

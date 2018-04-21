@@ -8,7 +8,7 @@ import pandas as pd
 import numpy as np
 
 # Constants
-num_partitions = 1000
+num_partitions = 100
 num_stdevs = 4
 # distance = 1.5
 
@@ -51,7 +51,7 @@ df['counter'] = df['label']
 
 # print df
 
-df.to_csv("experiment1_partitions_%s_%sp_%ss.csv" % (dataset_name,num_partitions,num_stdevs), index=False)
+df.to_csv("experiment1_partitions_%s_%sp_%ss.csv" % (dataset_name,num_partitions,num_stdevs), index=False, encoding='latin-1')
 
 # Stop here if you only want the clustering results and not evaluation
 sys.exit("Done.")
