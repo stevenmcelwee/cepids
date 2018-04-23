@@ -4,8 +4,19 @@ from dataset import NSLKDD
 from clusterer import PartitionGenerator
 import numpy as np
 import pandas as pd
+import math
 
 def main():
+    # Algorithm
+    # 1. Load and preprocess dataset
+    # 2. Generate the partitions
+    # 3. Calculate P(E)
+    # 4. Calculate P(A) for srcip
+    # 5. Update P(E) using P(A) for srcip
+    # 6. Calculate P(A) for dstip
+
+    # sample size for active learning is the power to which to raise N ( 1.0/2 is the square root)
+    sample_size_for_active_learning = 1.0/100
     dataset_class = 'UNSW'
     dataset_file = 'datasets/derived/kdd_u2r_r2l.csv'
     num_partitions = 100
@@ -21,11 +32,53 @@ def main():
                                  partition_input_file = partition_input_file)
     df = ids.calculate_p_e(df, num_partitions=num_partitions,
                            num_stdev=num_stdev, output_file=p_e_output_file)
-    p_a_dstip_df = ids.calculate_p_a(df, ['srcip','dstip'])
-    # p_a_srcip_df = ids.calculate_p_a(df, 'srcip')
-    # TODO: Figure out how to give stronger weighting to normal, P(E) = 0
-    # TODO: Also look at adjusting probability that both the src and dst have high prob
-    print p_a_dstip_df
+    # Calculate P(A) for the srcip, since it was found to be more distinguishable
+    # found that combining srcip and dstip in this calculation was better than just srcip
+    p_a_srcip_df = ids.calculate_p_a(df, host_fields=['srcip','dstip'], return_field='srcip')
+    # Update P(E) based on P(A) for srcip
+    df = ids.update_p_e(df, p_a_srcip_df)
+    # Now calcualte P(A) for the dstip
+    # Found that this only worked with dstip by itself. Combined with srcip was highly inaccurate
+    p_a_dstip_df = ids.calculate_p_a(df, host_fields=['dstip'], return_field='dstip')
+    # Append P(A) for dstip to dataframe
+    df['P_A_DST'] = 0
+    for index, row in p_a_dstip_df.iterrows():
+        df.loc[df['dstip'] == row['dstip'], 'P_A_DST'] = row['P_A']
+
+    # Perform active learning component for experiment 3
+    # Use df, which is the complete dataframe, including all data and results and update accordinlgly
+    # Design consideration - all that is needed is one high probability event to confirm that P(A) is correct
+    for index, row in p_a_srcip_df.loc[p_a_srcip_df['P_A'] >= 0.8].iterrows():
+        # grab a sample of data with number sqrt of N
+        events_df = df.loc[df['srcip'] == row['srcip']]
+        # sample_size = int(round(math.sqrt(len(events_df))))
+        sample_size = int(round(len(events_df) ** (sample_size_for_active_learning)))
+        print "Performing active learning for %s (%s of %s records)..." % (row['srcip'], sample_size, len(events_df))
+        events_df.sample(sample_size)
+        # ask the oracle by looking up the label for this sample
+        if len(events_df.loc[events_df['label'] == 'anomaly']) > 0:
+            print 'x'
+            df.loc[df['srcip'] == row['srcip'], 'P_A_SRC'] = 1.0
+        else:
+            df.loc[df['srcip'] == row['srcip'], 'P_A_SRC'] = 0
+    for index, row in p_a_dstip_df.loc[p_a_dstip_df['P_A'] >= 0.8].iterrows():
+        events_df = df.loc[df['dstip'] == row['dstip']]
+        # sample_size = int(round(math.sqrt(len(events_df))))
+        sample_size = int(round(len(events_df) ** (sample_size_for_active_learning)))
+        print "Performing active learning for %s (%s of %s records)..." % (row['dstip'], sample_size, len(events_df))
+        events_df.sample(sample_size)
+        # ask the oracle by looking up the label for this sample
+        if len(events_df.loc[events_df['label'] == 'anomaly']) > 0:
+            print 'x'
+            df.loc[df['dstip'] == row['dstip'], 'P_A_DST'] = 1.0
+        else:
+            df.loc[df['dstip'] == row['dstip'], 'P_A_DST'] = 0
+
+
+    eval_df = df[['srcip','dstip','P_E','P_A_SRC','P_E_UP','P_A_DST','label']]
+    eval_df.to_csv('results/experiment3_100rt.csv', index=False)
+
+    # print p_a_srcip_df
     # p_a_dstip_df.to_csv('p_a_src_dst')
 
 
@@ -131,7 +184,17 @@ class CEPIDS:
         # Everything is calculated, now return results in df
         return df
 
-    def calculate_p_a(self, df, host_fields):
+    def update_p_e(self, df, p_a_srcip):
+        print "Updating P(E) using P(A) for srcip..."
+        # Create a column for P(A)
+        df['P_A_SRC'] = 0
+        # Loop through all of the srcip addresses and update P(E) using P(A) for the srcip
+        for index, row in p_a_srcip.iterrows():
+            df.loc[df['srcip'] == row['srcip'], 'P_A_SRC'] = row['P_A']
+        df['P_E_UP'] = df['P_A_SRC']*df['P_E']
+        return df
+
+    def calculate_p_a(self, df, host_fields, return_field):
         # Using the dataframe with P(E) calculated, calculate P(A)
         # host_field can be either 'srcip' or 'dstip'
         # This will only work with the UNSW dataset
@@ -142,13 +205,16 @@ class CEPIDS:
 
         # Now sum the probabilities for each src_ip
         sum_p_a = p_a_df['P_E'].sum()
-        p_a_df = p_a_df.groupby(['srcip'])['P_E'].sum().reset_index()
+        p_a_df = p_a_df.groupby([return_field])['P_E'].sum().reset_index()
         p_a_df['P_E'] -= p_a_df['P_E'].min()
         p_a_df['P_E'] /= p_a_df['P_E'].max()
         p_a_df = p_a_df.sort_values(by=['P_E'], ascending=False)
 
         # Observations - the srcip is more descriptive of an attacker than the dstip
         # P(Asrcip) may be able to predict P(E|A)
+
+        # rename the column names to make sense, since P_E was only used for calculation
+        p_a_df.columns = [return_field, 'P_A']
 
         return p_a_df
 
