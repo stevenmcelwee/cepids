@@ -16,7 +16,7 @@ def main():
     # 6. Calculate P(A) for dstip
 
     # sample size for active learning is the power to which to raise N ( 1.0/2 is the square root)
-    sample_size_for_active_learning = 1.0/100
+    sample_size_for_active_learning = 1.0/4
     dataset_class = 'UNSW'
     dataset_file = 'datasets/derived/kdd_u2r_r2l.csv'
     num_partitions = 100
@@ -48,13 +48,14 @@ def main():
     # Perform active learning component for experiment 3
     # Use df, which is the complete dataframe, including all data and results and update accordinlgly
     # Design consideration - all that is needed is one high probability event to confirm that P(A) is correct
+    # observation cubed root is consistent, fifth root is not always consistent
     for index, row in p_a_srcip_df.loc[p_a_srcip_df['P_A'] >= 0.8].iterrows():
         # grab a sample of data with number sqrt of N
         events_df = df.loc[df['srcip'] == row['srcip']]
         # sample_size = int(round(math.sqrt(len(events_df))))
         sample_size = int(round(len(events_df) ** (sample_size_for_active_learning)))
         print "Performing active learning for %s (%s of %s records)..." % (row['srcip'], sample_size, len(events_df))
-        events_df.sample(sample_size)
+        events_df = events_df.sample(sample_size)
         # ask the oracle by looking up the label for this sample
         if len(events_df.loc[events_df['label'] == 'anomaly']) > 0:
             print 'x'
@@ -66,7 +67,7 @@ def main():
         # sample_size = int(round(math.sqrt(len(events_df))))
         sample_size = int(round(len(events_df) ** (sample_size_for_active_learning)))
         print "Performing active learning for %s (%s of %s records)..." % (row['dstip'], sample_size, len(events_df))
-        events_df.sample(sample_size)
+        events_df = events_df.sample(sample_size)
         # ask the oracle by looking up the label for this sample
         if len(events_df.loc[events_df['label'] == 'anomaly']) > 0:
             print 'x'
@@ -76,7 +77,7 @@ def main():
 
 
     eval_df = df[['srcip','dstip','P_E','P_A_SRC','P_E_UP','P_A_DST','label']]
-    eval_df.to_csv('results/experiment3_100rt.csv', index=False)
+    eval_df.to_csv('results/experiment3_4rt_09.csv', index=False)
 
     # print p_a_srcip_df
     # p_a_dstip_df.to_csv('p_a_src_dst')
