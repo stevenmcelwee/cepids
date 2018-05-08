@@ -205,7 +205,7 @@ class CEPIDS:
         p_a_df['P_E'] /= p_a_df['P_E'].max()
 
         # Now sum the probabilities for each src_ip
-        sum_p_a = p_a_df['P_E'].sum()
+        # sum_p_a = p_a_df['P_E'].sum()
         p_a_df = p_a_df.groupby([return_field])['P_E'].sum().reset_index()
         p_a_df['P_E'] -= p_a_df['P_E'].min()
         p_a_df['P_E'] /= p_a_df['P_E'].max()
