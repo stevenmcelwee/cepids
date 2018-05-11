@@ -7,80 +7,55 @@ import pandas as pd
 import math
 
 def main():
-    # Algorithm
-    # 1. Load and preprocess dataset
-    # 2. Generate the partitions
-    # 3. Calculate P(E)
-    # 4. Calculate P(A) for srcip
-    # 5. Update P(E) using P(A) for srcip
-    # 6. Calculate P(A) for dstip
 
-    # sample size for active learning is the power to which to raise N ( 1.0/2 is the square root)
-    sample_size_for_active_learning = 1.0/4
+    # Settings for experiments
+
+    # experiment 1
+    dataset_file = 'datasets/unsw-nb15/UNSW-NB15_1.csv'
     dataset_class = 'UNSW'
-    dataset_file = 'datasets/derived/kdd_u2r_r2l.csv'
     num_partitions = 100
+    min_feature_ratio = 0.25
+    max_feature_ratio = 0.75
+    min_clusters=40
+    max_clusters=100
+
+    # experiment 2
+    #    if input_partition_file is set, then experiment 1 will not be executed, but the partition file
+    #    will be loaded with existing partitions
+    input_partition_file = 'experiment1_partitions_unsw_100p_01.csv'
     num_stdev = 2
-    partition_output_file = 'cepids_partitions.csv'
-    partition_input_file = 'experiment1_partitions_unsw_100p_01.csv'
-    # partition_input_file = 'partitions_nslkdd_1000p.csv'
-    p_e_output_file = 'p_e_nslkdd_1000.csv'
+
+    # experiment 3
+    sample_size_exponent = 1.0/4    # note: 1.0/4 is the same as the fourth root
+    active_learning_output_file = 'final_output.csv'
+
+    # End of settings for experiments
+
+    # Instantiate the class
     ids = CEPIDS()
-    df = ids.generate_partitions(dataset_class=dataset_class,
-                                 dataset_file = dataset_file,
-                                 num_partitions = num_partitions,
-                                 partition_input_file = partition_input_file)
-    df = ids.calculate_p_e(df, num_partitions=num_partitions,
-                           num_stdev=num_stdev, output_file=p_e_output_file)
-    # Calculate P(A) for the srcip, since it was found to be more distinguishable
-    # found that combining srcip and dstip in this calculation was better than just srcip
-    p_a_srcip_df = ids.calculate_p_a(df, host_fields=['srcip','dstip'], return_field='srcip')
-    # Update P(E) based on P(A) for srcip
-    df = ids.update_p_e(df, p_a_srcip_df)
-    # Now calcualte P(A) for the dstip
-    # Found that this only worked with dstip by itself. Combined with srcip was highly inaccurate
-    p_a_dstip_df = ids.calculate_p_a(df, host_fields=['dstip'], return_field='dstip')
-    # Append P(A) for dstip to dataframe
-    df['P_A_DST'] = 0
-    for index, row in p_a_dstip_df.iterrows():
-        df.loc[df['dstip'] == row['dstip'], 'P_A_DST'] = row['P_A']
 
-    # Perform active learning component for experiment 3
-    # Use df, which is the complete dataframe, including all data and results and update accordinlgly
-    # Design consideration - all that is needed is one high probability event to confirm that P(A) is correct
-    # observation cubed root is consistent, fifth root is not always consistent
-    for index, row in p_a_srcip_df.loc[p_a_srcip_df['P_A'] >= 0.8].iterrows():
-        # grab a sample of data with number sqrt of N
-        events_df = df.loc[df['srcip'] == row['srcip']]
-        # sample_size = int(round(math.sqrt(len(events_df))))
-        sample_size = int(round(len(events_df) ** (sample_size_for_active_learning)))
-        print "Performing active learning for %s (%s of %s records)..." % (row['srcip'], sample_size, len(events_df))
-        events_df = events_df.sample(sample_size)
-        # ask the oracle by looking up the label for this sample
-        if len(events_df.loc[events_df['label'] == 'anomaly']) > 0:
-            print 'x'
-            df.loc[df['srcip'] == row['srcip'], 'P_A_SRC'] = 1.0
-        else:
-            df.loc[df['srcip'] == row['srcip'], 'P_A_SRC'] = 0
-    for index, row in p_a_dstip_df.loc[p_a_dstip_df['P_A'] >= 0.8].iterrows():
-        events_df = df.loc[df['dstip'] == row['dstip']]
-        # sample_size = int(round(math.sqrt(len(events_df))))
-        sample_size = int(round(len(events_df) ** (sample_size_for_active_learning)))
-        print "Performing active learning for %s (%s of %s records)..." % (row['dstip'], sample_size, len(events_df))
-        events_df = events_df.sample(sample_size)
-        # ask the oracle by looking up the label for this sample
-        if len(events_df.loc[events_df['label'] == 'anomaly']) > 0:
-            print 'x'
-            df.loc[df['dstip'] == row['dstip'], 'P_A_DST'] = 1.0
-        else:
-            df.loc[df['dstip'] == row['dstip'], 'P_A_DST'] = 0
+    # Run the first experiment
+    if input_partition_file is None:
+        df = ids.experiment1(dataset_file=dataset_file, dataset_class=dataset_class,
+                             num_partitions=num_partitions, min_feature_ratio=min_feature_ratio,
+                             max_feature_ratio=max_feature_ratio, min_clusters=min_clusters,
+                             max_clusters=max_clusters)
+    else:
+        # Shortcut if partitions have already been run, just load them from a file
+        df = pd.read_csv(input_partition_file, encoding='latin-1', low_memory=False)
 
+    if dataset_class == 'UNSW':
 
-    eval_df = df[['srcip','dstip','P_E','P_A_SRC','P_E_UP','P_A_DST','label']]
-    eval_df.to_csv('results/experiment3_4rt_09.csv', index=False)
+        # Run the second experiment but only for the UNSW dataset
+        df = ids.experiment2(df, num_partitions=num_partitions, num_stdev=num_stdev)
 
-    # print p_a_srcip_df
-    # p_a_dstip_df.to_csv('p_a_src_dst')
+        # Run the third experiment but only for the UNSW dataset
+    if dataset_class == 'UNSW':
+        df = ids.experiment3(df, sample_size_exponent=sample_size_exponent)
+
+        # Write the ouput as file with less columns for offline analysis
+        eval_df = df[['srcip','dstip','P_E','P_A_SRC','P_A_DST','label']]
+        eval_df.to_csv(active_learning_output_file, index=False, encoding='latin-1')
 
 
 # The purpose of this class is to tie the experiments together into
@@ -89,6 +64,74 @@ class CEPIDS:
 
     def __init__(self):
         pass
+
+    def experiment1(self, dataset_class, dataset_file, num_partitions,
+                    min_feature_ratio, max_feature_ratio, min_clusters, max_clusters, output_file=None):
+        print "Running Experiment 1..."
+        df = self.generate_partitions(dataset_class=dataset_class,
+                                      dataset_file = dataset_file,
+                                      num_partitions = num_partitions,
+                                      min_feature_ratio=min_feature_ratio,
+                                      max_feature_ratio=max_feature_ratio,
+                                      min_clusters=min_clusters,
+                                      max_clusters=max_clusters,
+                                      partition_output_file = output_file)
+        return df
+
+    def experiment2(self, df, num_partitions, num_stdev, output_file = None):
+        print "Running Experiment 2..."
+        df = self.calculate_p_e(df, num_partitions=num_partitions,
+                               num_stdev=num_stdev)
+        # Calculate P(A) for the srcip, since it was found to be more distinguishable
+        # found that combining srcip and dstip in this calculation was better than just srcip
+        p_a_srcip_df = self.calculate_p_a(df, host_fields=['srcip','dstip'], return_field='srcip')
+        # Now calcualte P(A) for the dstip
+        p_a_dstip_df = self.calculate_p_a(df, host_fields=['dstip'], return_field='dstip')
+        # Create a column for P(A)
+        df['P_A_SRC'] = 0
+        # Loop through all of the srcip addresses and update P(E) using P(A) for the srcip
+        for index, row in p_a_srcip_df.iterrows():
+            df.loc[df['srcip'] == row['srcip'], 'P_A_SRC'] = row['P_A']
+        # Append P(A) for dstip to dataframe
+        df['P_A_DST'] = 0
+        for index, row in p_a_dstip_df.iterrows():
+            df.loc[df['dstip'] == row['dstip'], 'P_A_DST'] = row['P_A']
+        if output_file is not None:
+            df.to_csv(output_file, index=False)
+        return df
+
+    def experiment3(self, df, sample_size_exponent, output_file=None):
+        print "Running Experiment 3..."
+        # Regenerate p_a_srcip_df by grouping by srcip and returning the maximum (they are all the same)
+        p_a_srcip_df = df.groupby('srcip')['P_A_SRC'].max().reset_index()
+        for index, row in p_a_srcip_df.loc[p_a_srcip_df['P_A_SRC'] >= 0.8].iterrows():
+            # grab a sample of data with number sqrt of N
+            events_df = df.loc[df['srcip'] == row['srcip']]
+            # sample_size = int(round(math.sqrt(len(events_df))))
+            sample_size = int(round(len(events_df) ** (sample_size_exponent)))
+            print "Performing active learning for %s (%s of %s records)..." % (row['srcip'], sample_size, len(events_df))
+            events_df = events_df.sample(sample_size)
+            # ask the oracle by looking up the label for this sample
+            if len(events_df.loc[events_df['label'] == 'anomaly']) > 0:
+                df.loc[df['srcip'] == row['srcip'], 'P_A_SRC'] = 1.0
+            else:
+                df.loc[df['srcip'] == row['srcip'], 'P_A_SRC'] = 0
+        # Regenerate p_a_dstip_df by grouping by dstip and returning the maximum (they are all the same)
+        p_a_dstip_df = df.groupby('dstip')['P_A_DST'].max().reset_index()
+        for index, row in p_a_dstip_df.loc[p_a_dstip_df['P_A_DST'] >= 0.8].iterrows():
+            events_df = df.loc[df['dstip'] == row['dstip']]
+            # sample_size = int(round(math.sqrt(len(events_df))))
+            sample_size = int(round(len(events_df) ** (sample_size_exponent)))
+            print "Performing active learning for %s (%s of %s records)..." % (row['dstip'], sample_size, len(events_df))
+            events_df = events_df.sample(sample_size)
+            # ask the oracle by looking up the label for this sample
+            if len(events_df.loc[events_df['label'] == 'anomaly']) > 0:
+                df.loc[df['dstip'] == row['dstip'], 'P_A_DST'] = 1.0
+            else:
+                df.loc[df['dstip'] == row['dstip'], 'P_A_DST'] = 0
+            if output_file is not None:
+                df.to_csv(output_file, index=False)
+        return df
 
     def load_dataset(self, dataset_class, dataset_file):
         print "Loading the dataset..."
@@ -99,41 +142,40 @@ class CEPIDS:
         return dataset
 
     def generate_partitions(self, dataset_class, dataset_file, num_partitions,
-                            partition_input_file = None,
+                            min_feature_ratio, max_feature_ratio,
+                            min_clusters, max_clusters,
                             partition_output_file = None):
-        if partition_input_file is not None:
-            print "Loading existing partition file..."
-            df = pd.read_csv(partition_input_file, low_memory=False)
+        print "Generating the partitions..."
+        # Generate the partitions. Optionally save as csv file.
+        # load the dataset from file
+        dataset = self.load_dataset(dataset_class, dataset_file)
+        # get a clean copy of the original dataset without preprocessing
+        df = dataset.get_df()
+        # preprocess the dataset
+        dataset.preprocess()
+        # generate partitions
+        pg = PartitionGenerator(dataset=dataset, num_partitions=num_partitions,
+                                min_feature_ratio=min_feature_ratio, max_feature_ratio=max_feature_ratio,
+                                min_clusters=min_clusters, max_clusters=max_clusters)
+        # append clustering results to original dataset as dataframe
+        # label each partition P0 to PN
+        i = 0
+        for partition in pg.get_labels():
+            label = "P%s" % i
+            df[label] = partition[1]
+            i += 1
+        # change dataset labels to reflect normal vs. anomaly
+        if dataset_class == 'UNSW':
+            df['label'] = np.where(df['Label'] == 0, 'normal', 'anomaly')
         else:
-            print "Generating the partitions..."
-            # Generate the partitions. Optionally save as csv file.
-            # load the dataset from file
-            dataset = self.load_dataset(dataset_class, dataset_file)
-            # get a clean copy of the original dataset without preprocessing
-            df = dataset.get_df()
-            # preprocess the dataset
-            dataset.preprocess()
-            # generate partitions
-            pg = PartitionGenerator(dataset, num_partitions)
-            # append clustering results to original dataset as dataframe
-            # label each partition P0 to PN
-            i = 0
-            for partition in pg.get_labels():
-                label = "P%s" % i
-                df[label] = partition[1]
-                i += 1
-            # change dataset labels to reflect normal vs. anomaly
-            if dataset_class == 'UNSW':
-                df['label'] = np.where(df['Label'] == 0, 'normal', 'anomaly')
-            else:
-                df.loc[df.label <> "normal", ["label"]] = 'anomaly'
-            # create a consistent label that can be used for counting since
-            # datasets have different column names
-            df['counter'] = df['label']
-            # if an output filename was provided, save it to csv
-            if partition_output_file is not None:
-                print "Saving partition output file..."
-                df.to_csv(partition_output_file)
+            df.loc[df.label <> "normal", ["label"]] = 'anomaly'
+        # create a consistent label that can be used for counting since
+        # datasets have different column names
+        df['counter'] = df['label']
+        # if an output filename was provided, save it to csv
+        if partition_output_file is not None:
+            print "Saving partition output file..."
+            df.to_csv(partition_output_file)
         return df
 
     def calculate_p_e(self, df, num_partitions, num_stdev, output_file=None):
@@ -181,18 +223,9 @@ class CEPIDS:
         df.loc[df['votes'] < mid_point, 'P_E'] = (1 - df['votes']/mid_point)/2
         # If an output file name was provided, save as CSV
         if output_file is not None:
+            print "Saving output file..."
             df[['label','votes','P_E']].to_csv(output_file, index=False)
         # Everything is calculated, now return results in df
-        return df
-
-    def update_p_e(self, df, p_a_srcip):
-        print "Updating P(E) using P(A) for srcip..."
-        # Create a column for P(A)
-        df['P_A_SRC'] = 0
-        # Loop through all of the srcip addresses and update P(E) using P(A) for the srcip
-        for index, row in p_a_srcip.iterrows():
-            df.loc[df['srcip'] == row['srcip'], 'P_A_SRC'] = row['P_A']
-        df['P_E_UP'] = df['P_A_SRC']*df['P_E']
         return df
 
     def calculate_p_a(self, df, host_fields, return_field):
